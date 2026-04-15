@@ -140,6 +140,126 @@ The integrations above are coupled to the request-response cycle. To use ``nplus
     with profiler.Profiler():
         ...
 
+Generating a report
+*******************
+
+``nplusone`` can generate an aggregated report of all detected issues, grouped by model, field, error type, and calling method, with counts and source locations.
+
+Using the pytest plugin
+^^^^^^^^^^^^^^^^^^^^^^^
+
+The easiest way to get a report is via the built-in pytest plugin. Add ``--nplusone-report`` to your pytest invocation: ::
+
+    pytest --nplusone-report
+
+This prints a summary at the end of the test run: ::
+
+    nplusone Report
+    ============================================================
+    Total issues: 9
+    Unique groups: 3
+
+    1. Potential n+1 query detected on `User.hobbies`
+       Model:      User
+       Field:      hobbies
+       Error type: n_plus_one
+       Caller:     test_n_plus_one_on_hobbies
+       Count:      3
+       Locations:
+         - /app/example_tests.py:44
+       Tests:
+         - example_tests.py::test_n_plus_one_on_hobbies
+
+    2. Potential n+1 query detected on `User.occupation`
+       Model:      User
+       Field:      occupation
+       Error type: n_plus_one
+       Caller:     test_n_plus_one_on_occupation
+       Count:      3
+       Locations:
+         - /app/example_tests.py:36
+       Tests:
+         - example_tests.py::test_n_plus_one_on_occupation
+
+    3. Potential n+1 query detected on `User.pet_set`
+       Model:      User
+       Field:      pet_set
+       Error type: n_plus_one
+       Caller:     test_n_plus_one_on_pets
+       Count:      3
+       Locations:
+         - /app/example_tests.py:29
+       Tests:
+         - example_tests.py::test_n_plus_one_on_pets
+
+To write the report to a file instead of the terminal: ::
+
+    pytest --nplusone-report --nplusone-report-file=report.txt
+
+To get JSON output: ::
+
+    pytest --nplusone-report --nplusone-report-format=json
+    pytest --nplusone-report --nplusone-report-format=json --nplusone-report-file=report.json
+
+The JSON output looks like: ::
+
+    {
+      "total_issues": 9,
+      "groups": [
+        {
+          "model": "User",
+          "field": "hobbies",
+          "error_type": "n_plus_one",
+          "caller": "test_n_plus_one_on_hobbies",
+          "count": 3,
+          "message": "Potential n+1 query detected on `User.hobbies`",
+          "locations": ["/app/example_tests.py:44"],
+          "tests": ["example_tests.py::test_n_plus_one_on_hobbies"]
+        }
+      ]
+    }
+
+Using the Profiler
+^^^^^^^^^^^^^^^^^^
+
+To generate a report outside of pytest, pass a ``Report`` object to the ``Profiler``: ::
+
+    from nplusone.core.profiler import Profiler
+    from nplusone.core.report import Report
+    import nplusone.ext.django  # or nplusone.ext.sqlalchemy
+
+    report = Report()
+    with Profiler(report=report):
+        # code that triggers queries
+        ...
+
+    print(report.to_text())   # human-readable summary
+    print(report.to_json())   # JSON output
+    data = report.to_dict()   # Python dict
+
+Using Django or Flask settings
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Enable the ``ReportNotifier`` by setting ``NPLUSONE_REPORT`` in your settings. Provide a shared ``Report`` instance via ``NPLUSONE_REPORT_OBJECT`` to collect results: ::
+
+    # Django settings.py
+    from nplusone.core.report import Report
+
+    nplusone_report = Report()
+    NPLUSONE_REPORT = True
+    NPLUSONE_REPORT_OBJECT = nplusone_report
+
+    # Flask config
+    from nplusone.core.report import Report
+
+    report = Report()
+    app.config['NPLUSONE_REPORT'] = True
+    app.config['NPLUSONE_REPORT_OBJECT'] = report
+
+After the request cycle, access the collected data: ::
+
+    print(nplusone_report.to_text())
+
 Customizing notifications
 *************************
 
