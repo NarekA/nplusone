@@ -148,7 +148,23 @@ Generating a report
 Using the pytest plugin
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-The easiest way to get a report is via the built-in pytest plugin. Add ``--nplusone-report`` to your pytest invocation: ::
+The built-in pytest plugin exposes these flags (any order; they can be combined):
+
+* ``--nplusone`` — run lazy/eager listeners around each test; violations are logged as warnings (unless you add ``--nplusone-error`` or ``--nplusone-report``).
+* ``--nplusone-error`` — raise ``NPlusOneError`` on violations (fail the test). Can be used alone, with ``--nplusone``, or with ``--nplusone-report`` (issues are recorded to the report, then the test fails).
+* ``--nplusone-report`` — aggregate detected issues into a report (terminal summary unless a file is set).
+* ``--nplusone-report-file`` — write the report to a path instead of printing it. The format is inferred from the filename: paths ending in ``.json`` are written as JSON; all other paths use plain text. Terminal-only summaries (no file) are always plain text (for example ``pytest --nplusone-report --nplusone-report-file=report.txt`` or ``report.json``).
+* ``--nplusone-django`` — import ``nplusone.ext.django`` so the Django ORM is patched (requires Django).
+
+``--nplusone-report`` alone enables listeners and the report. For an explicit full stack with Django: ::
+
+    pytest --nplusone --nplusone-report --nplusone-django
+
+To fail the run on the first n+1: ::
+
+    pytest --nplusone --nplusone-error
+
+A minimal report-only invocation: ::
 
     pytest --nplusone-report
 
@@ -191,15 +207,6 @@ This prints a summary at the end of the test run: ::
          - /app/example_tests.py:29
        Tests:
          - example_tests.py::test_n_plus_one_on_pets
-
-To write the report to a file instead of the terminal: ::
-
-    pytest --nplusone-report --nplusone-report-file=report.txt
-
-To get JSON output: ::
-
-    pytest --nplusone-report --nplusone-report-format=json
-    pytest --nplusone-report --nplusone-report-format=json --nplusone-report-file=report.json
 
 The JSON output looks like: ::
 
