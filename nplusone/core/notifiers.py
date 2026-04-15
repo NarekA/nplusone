@@ -3,6 +3,8 @@
 import logging
 
 from nplusone.core import exceptions
+from nplusone.core import stack
+from nplusone.core.report import Report
 
 
 class Notifier(object):
@@ -52,8 +54,28 @@ class ErrorNotifier(Notifier):
         raise self.error(message.message)
 
 
+class ReportNotifier(Notifier):
+
+    CONFIG_KEY = 'NPLUSONE_REPORT'
+    ENABLED_DEFAULT = False
+
+    CALLER_PATTERNS = [
+        'site-packages', 'nplusone/core', 'nplusone/ext',
+    ]
+
+    def __init__(self, config):
+        self.report = config.get('NPLUSONE_REPORT_OBJECT', Report())
+        self.caller_patterns = config.get(
+            'NPLUSONE_REPORT_CALLER_PATTERNS', self.CALLER_PATTERNS
+        )
+
+    def notify(self, message):
+        caller = stack.get_caller(patterns=self.caller_patterns)
+        self.report.add(message, caller)
+
+
 def init(config):
     return [
-        notifier(config) for notifier in (LogNotifier, ErrorNotifier)
+        notifier(config) for notifier in (LogNotifier, ErrorNotifier, ReportNotifier)
         if notifier.is_enabled(config)
     ]

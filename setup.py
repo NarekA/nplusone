@@ -62,5 +62,10 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
     ],
+    entry_points={
+        'pytest11': [
+            'nplusone = nplusone.ext.pytest_plugin',
+        ],
+    },
     test_suite='tests'
 )
