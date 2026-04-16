@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import glob
 import json
 import os
 import subprocess
@@ -154,7 +155,9 @@ class TestPytestPluginIntegration(unittest.TestCase):
                 ],
             )
             assert "nplusone report written to" in result.stdout
-            with open(outfile) as f:
+            matches = glob.glob(os.path.join(tmp_dir, "report-*.json"))
+            assert len(matches) == 1
+            with open(matches[0]) as f:
                 data = json.load(f)
             assert data["total_issues"] >= 1
             group = data["groups"][0]
@@ -195,10 +198,94 @@ class TestPytestPluginIntegration(unittest.TestCase):
                 ],
             )
             assert "nplusone report written to" in result.stdout
-            with open(outfile) as f:
+            matches = glob.glob(os.path.join(tmp_dir, "report-*.txt"))
+            assert len(matches) == 1
+            with open(matches[0]) as f:
                 body = f.read()
             assert "nplusone Report" in body
             assert "Widget" in body
+
+    def test_report_json_file_suffix_template(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            pattern = os.path.join(tmp_dir, "nplusone-{suffix}.json")
+            result = _run_pytest_subprocess(
+                tmp_dir,
+                """
+                from nplusone.core import signals
+
+                class Gadget(object):
+                    pass
+
+                def test_trigger():
+                    signals.load.send(
+                        signals.get_worker(),
+                        args=None, kwargs=None, context=None, ret=None,
+                        parser=lambda a, k, c, r: ['Gadget:1'],
+                    )
+                    signals.lazy_load.send(
+                        signals.get_worker(),
+                        args=None, kwargs=None, context=None, ret=None,
+                        parser=lambda a, k, c: (Gadget, 'Gadget:1', 'widgets'),
+                    )
+            """,
+                extra_args=[
+                    "--nplusone-report",
+                    "--nplusone-report-file={0}".format(pattern),
+                ],
+            )
+            assert result.returncode == 0
+            matches = glob.glob(os.path.join(tmp_dir, "nplusone-*.json"))
+            assert len(matches) == 1
+            assert "{suffix}" not in matches[0]
+            with open(matches[0]) as f:
+                data = json.load(f)
+            assert data["total_issues"] >= 1
+
+    def test_report_file_auto_suffix_two_runs_no_clobber(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            base = os.path.join(tmp_dir, "out.json")
+            snippet = """
+                from nplusone.core import signals
+
+                class G(object):
+                    pass
+
+                def test_t():
+                    signals.load.send(
+                        signals.get_worker(),
+                        args=None, kwargs=None, context=None, ret=None,
+                        parser=lambda a, k, c, r: ['G:1'],
+                    )
+                    signals.lazy_load.send(
+                        signals.get_worker(),
+                        args=None, kwargs=None, context=None, ret=None,
+                        parser=lambda a, k, c: (G, 'G:1', 'x'),
+                    )
+            """
+            r1 = _run_pytest_subprocess(
+                tmp_dir,
+                snippet,
+                extra_args=[
+                    "--nplusone-report",
+                    "--nplusone-report-file={0}".format(base),
+                ],
+            )
+            r2 = _run_pytest_subprocess(
+                tmp_dir,
+                snippet,
+                extra_args=[
+                    "--nplusone-report",
+                    "--nplusone-report-file={0}".format(base),
+                ],
+            )
+            assert r1.returncode == 0
+            assert r2.returncode == 0
+            matches = glob.glob(os.path.join(tmp_dir, "out-*.json"))
+            assert len(matches) == 2
 
     def test_no_flag_no_report(self):
         import tempfile
