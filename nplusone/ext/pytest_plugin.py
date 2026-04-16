@@ -2,6 +2,8 @@
 
 import json
 import logging
+import os
+import uuid
 
 import pytest
 
@@ -18,11 +20,29 @@ def _is_xdist_worker(config):
     return getattr(config, "workerinput", None) is not None
 
 
-def _infer_report_format(config):
-    outfile = config.getoption("nplusone_report_file", default=None)
-    if outfile and str(outfile).lower().endswith(".json"):
+def _infer_report_format(outfile_path):
+    if outfile_path and str(outfile_path).lower().endswith(".json"):
         return "json"
     return "text"
+
+
+def _ensure_report_file_suffix(config):
+    """Unique per-session token so default report paths are not clobbered."""
+    if getattr(config, "_nplusone_report_file_suffix", None) is None:
+        config._nplusone_report_file_suffix = uuid.uuid4().hex[:16]
+    return config._nplusone_report_file_suffix
+
+
+def _resolve_nplusone_report_file(config):
+    raw = config.getoption("nplusone_report_file", default=None)
+    if not raw:
+        return None
+    raw = os.path.expanduser(os.path.expandvars(str(raw)))
+    suffix = _ensure_report_file_suffix(config)
+    if "{suffix}" in raw:
+        return raw.replace("{suffix}", suffix)
+    base, ext = os.path.splitext(raw)
+    return "{0}-{1}{2}".format(base, suffix, ext)
 
 
 def _ensure_nplusone_django():
@@ -163,7 +183,10 @@ def pytest_addoption(parser):
         dest="nplusone_report_file",
         help=(
             "Write the nplusone report to a file (default: print to terminal). "
-            "Format is inferred from the path: names ending in .json are JSON; otherwise plain text."
+            "Format is inferred from the path: names ending in .json are JSON; otherwise plain text. "
+            "A unique suffix is appended to the basename (before the extension) so repeated runs "
+            "do not overwrite the same file. Use the literal substring {suffix} in the path to insert "
+            "that suffix yourself (for example reports/{suffix}.json or {suffix}-nplusone.txt)."
         ),
     )
 
@@ -250,8 +273,8 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     if report is None:
         return
 
-    fmt = _infer_report_format(config)
-    outfile = config.getoption("nplusone_report_file", default=None)
+    outfile = _resolve_nplusone_report_file(config)
+    fmt = _infer_report_format(outfile)
 
     payloads = list(getattr(config, "_nplusone_worker_payloads", None) or [])
     if report.entries:
@@ -269,6 +292,9 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             content = report_dict_to_text({"total_issues": 0, "groups": []})
 
     if outfile:
+        parent = os.path.dirname(os.path.abspath(outfile))
+        if parent:
+            os.makedirs(parent, exist_ok=True)
         with open(outfile, "w") as f:
             f.write(content)
             f.write("\n")

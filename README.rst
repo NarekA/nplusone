@@ -153,7 +153,10 @@ The built-in pytest plugin exposes these flags (any order; they can be combined)
 * ``--nplusone`` — run lazy/eager listeners around each test; violations are logged as warnings (unless you add ``--nplusone-error`` or ``--nplusone-report``).
 * ``--nplusone-error`` — raise ``NPlusOneError`` on violations (fail the test). Can be used alone, with ``--nplusone``, or with ``--nplusone-report`` (issues are recorded to the report, then the test fails).
 * ``--nplusone-report`` — aggregate detected issues into a report (terminal summary unless a file is set).
-* ``--nplusone-report-file`` — write the report to a path instead of printing it. The format is inferred from the filename: paths ending in ``.json`` are written as JSON; all other paths use plain text. Terminal-only summaries (no file) are always plain text (for example ``pytest --nplusone-report --nplusone-report-file=report.txt`` or ``report.json``).
+* ``--nplusone-report-file`` — write the report to a path instead of printing it. The format is inferred from the filename: paths ending in ``.json`` are written as JSON; all other paths use plain text. 
+    Terminal-only summaries (no file) are always plain text (for example ``pytest --nplusone-report --nplusone-report-file=report.txt`` or ``report.json``). 
+    Each run adds a unique suffix to the basename (before the extension), so ``report.json`` becomes something like ``report-a1b2c3d4e5f67890.json`` and parallel or repeated runs do not overwrite the same path. 
+    To place the suffix yourself, include the literal substring ``{suffix}`` in the path (for example ``artifacts/{suffix}.json`` or ``run-{suffix}-nplusone.txt``); parent directories are created when needed.
 * ``--nplusone-django`` — import ``nplusone.ext.django`` so the Django ORM is patched (requires Django).
 
 ``--nplusone-report`` alone enables listeners and the report. For an explicit full stack with Django: ::
